@@ -1,0 +1,100 @@
+###############################################
+# VECTOR DATABASE: PostgreSQL + pgvector
+###############################################
+# Start / Stop Stack
+#   docker-compose down
+#   docker-compose up -d
+#
+# After first startup:
+#   1. Open pgAdmin in browser → http://localhost:5050
+#   2. Create a new server connection:
+#        - Hostname: container IP (see below)
+#        - Username: postgres
+#        - Password: postgres
+#   3. Inside pgAdmin, enable pgvector:
+#        CREATE EXTENSION vector;
+#
+# Find container IP (for pgAdmin connection):
+#   docker ps
+#   docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' <container_id>
+# Example:
+#   172.17.0.3
+#
+###############################################
+# OLLAMA: Local LLM Runtime
+###############################################
+# Access shell inside Ollama container:
+#   docker exec -it ollama_local /bin/sh
+# Exit shell:
+#   exit
+#
+###############################################
+# NETWORKING
+###############################################
+# All services share the "localnet" bridge network
+# allowing internal communication by service name.
+###############################################
+
+version: "3.9"
+
+services:
+  
+  # PostgreSQL with Vector Extension
+  pgvector:
+    image: ankane/pgvector:latest
+    container_name: pgvector_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5555:5432"
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+    networks:
+      - localnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin Database Management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: pgadmin_ui
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_LISTEN_PORT: 80
+    ports:
+      - "5050:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - pgvector
+    networks:
+      - localnet
+
+  # Ollama - LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_local
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - localnet
+
+volumes:
+  pgvector_data:
+  pgadmin_data:
+  ollama_models:
+
+networks:
+  localnet:
+    driver: bridge
