@@ -1,99 +1,118 @@
-# Local RAG Playground — A Microlearning Guide
+# Local RAG Playground
 
-Welcome to the Local RAG Playground — a hands‑on environment designed to help you understand how Retrieval‑Augmented Generation (RAG) works using Python, Ollama, and pgvector.
+*A Microlearning Guide to Retrieval‑Augmented Generation*
 
-This project is intentionally simple, transparent, and educational.
-Everything runs locally, so you can explore RAG concepts without external APIs or cloud dependencies.
-
-## 🧩 What This Project Is
-
-This project is a lightweight, fully local Retrieval‑Augmented Generation (RAG) system built with:
-
-- **Python** — Core language
-- **Ollama** — Local LLM + Embeddings engine
-- **PostgreSQL + pgvector** — Vector database
-- **LangChain** — Text splitting & orchestration
-- **Jupyter** — Interactive experimentation notebooks
-
-### You Can:
-- Ingest documents (PDFs, resumes, knowledge files)
-- Chunk them into semantically meaningful pieces
-- Embed them using multilingual embedding models
-- Store embeddings in a vector database
-- Perform semantic search over your knowledgebase
-- Generate answers grounded in your documents
-
-## 🚀 Features
-
-| Feature | Benefit |
-|---------|---------|
-| 📄 PDF ingestion with text extraction | Easy document loading |
-| ✂️ Semantic chunking | Preserves context & meaning |
-| 🧠 Multilingual embeddings | Works across languages |
-| 🔍 Vector similarity search | Find relevant content fast |
-| 🧱 Modular architecture | Easy to understand & extend |
-| 🧪 Jupyter notebooks | Learn interactively |
-| 🔒 Fully local | No external APIs, complete privacy |
+This repository provides a **fully local, transparent playground** for learning how **Retrieval‑Augmented Generation (RAG)** works end‑to‑end. The goal is **understanding first**, not production scale. Everything runs locally. No cloud APIs. No black boxes. No vendor lock‑in.
 
 
-## 🧱 Architecture Overview
+## What This Project Is (and Is Not)
 
-### The RAG Pipeline
+### ✅ This project **is**
 
-```
-Ingestion Phase:
-  PDF → Chunker → Semantic Chunks
-                           ↓
-                    Embedding (Ollama)
-                           ↓
-                     pgvector (Store)
+*   A hands‑on learning environment for **RAG concepts**
+*   A clean reference implementation
+*   A safe place to experiment and break things
+*   Fully local (data + models stay on your machine)
 
-Retrieval Phase:
-  User Query → Embedding (Ollama) → Vector Search → Top K Chunks → LLM → Answer
-```
+### ❌ This project is **not**
 
-### Data Flow Example:
+*   A production RAG system
+*   A performance benchmark
+*   A framework abstraction layer
 
-```
-1. Upload file.pdf
-   └─ Extract text
-   └─ Split into chunks (preserving context)
-   └─ Convert each chunk to embedding vector
-   └─ Store in PostgreSQL with pgvector
 
-2. User asks: "What are the candidate's skills?"
-   └─ Convert question to embedding
-   └─ Search pgvector for similar chunks (cosine distance)
-   └─ Retrieve top 3 matching chunks
-   └─ Pass to LLM: "Based on these chunks, answer the question"
-   └─ Return grounded answer
-```
+## Core Technologies
 
-## 🧩 Core Components
+This playground combines a small set of well‑understood components:
 
-| Component | Purpose |
-|-----------|---------|
-| **Ollama** | Provides embeddings + LLM generation locally |
-| **Chunker** | Extracts text from PDFs, intelligently chunks content |
-| **Embedding Engine** | Converts text to 1024-dim vectors |
-| **PostgreSQL + pgvector** | Stores vectors, performs similarity search |
-| **RagController** | Orchestrates ingestion, search, generation |
-| **SQLAlchemy Models** | ORM for documents, chunks, embeddings |
+*   **Python** — pipeline logic and orchestration
+    *   Entry point: `app/playground.ipynb`
+*   **Ollama** — local LLM + embedding runtime
+*   **PostgreSQL + pgvector** — vector storage and similarity search
+*   **LangChain** — text splitting and retrieval helpers
 
-Each component is intentionally small and easy to understand.
+Each piece is intentionally visible and modifiable.
 
-## ⚙️ System Requirements
+
+## What You Will Learn
+
+By working through this project, you will learn how to:
+
+*   Ingest real documents (PDFs, resumes, notes)
+*   Split text into **semantically meaningful chunks**
+*   Generate **embedding vectors** locally
+*   Store and query vectors using **pgvector**
+*   Perform **semantic search**
+*   Feed retrieved context into an LLM
+*   Produce **grounded answers**, not hallucinations
+
+
+## Project Structure
+
+    env-llm-playground/
+    ├── app/
+    │   ├── playground.ipynb        # Main interactive entry point
+    │   ├── chunker.py              # PDF text extraction & chunking
+    │   ├── embedding_engine.py     # Calls Ollama embedding API
+    │   ├── rag_controller.py       # Orchestrates RAG pipeline
+    │   └── models.py               # SQLAlchemy ORM definitions
+    ├── config/
+    │   └── settings.py             # Ollama & PostgreSQL config
+    ├── data/
+    │   └── uploads/                # Input documents
+    ├── docs/
+    │   └── examples/               # Example queries & scenarios
+    ├── readme-docker.md            # Docker environment setup
+    ├── README.md                   # This file
+    └── requirements.txt
+
+***
+
+## Component Responsibilities
+
+| Component            | Responsibility                                    |
+| -------------------- | ------------------------------------------------- |
+| **Chunker**          | Extracts text and splits into semantic units      |
+| **Embedding Engine** | Converts text to vectors using Ollama             |
+| **pgvector**         | Stores vectors and performs similarity search     |
+| **RAG Controller**   | Orchestrates ingestion, retrieval, and generation |
+| **Ollama**           | Provides embeddings and LLM responses locally     |
+
+Each component is deliberately small and readable.
+
+
+## System Requirements (Practical Guidance)
 
 ### Hardware
 
-- **RAM**: 8 GB minimum (16 GB recommended for smooth operation)
-- **Disk**: 10 GB+ for models and data
-- **CPU**: Modern processor (LLMs work on CPU, but benefit from adequate cores)
+*   **RAM:** 8 GB minimum (16 GB recommended)
+*   **Disk:** \~10 GB free (models + vectors)
+*   **CPU:** Modern multi‑core CPU
 
 ### Software
 
-- **Python 3.10+**
-- **PostgreSQL 13+** with pgvector extension
-  - Vector column: `embedding vector(1024)`
-- **Ollama** installed and running locally
-- **Docker** (optional, for containerized services)
+*   **Python 3.10+**
+*   **Docker** (recommended for services)
+*   **Ollama** (local model runtime)
+*   **PostgreSQL 13+** with pgvector
+
+
+## Intended Usage
+
+This project works best as:
+
+*   A **learning companion**
+*   A **teaching example**
+*   A **sandbox** for trying ideas before production
+*   A **reference baseline** you can evolve
+
+
+## Next Steps
+
+Once you understand this playground, you’ll be well‑equipped to:
+
+*   Scale to larger datasets
+*   Add metadata filtering
+*   Experiment with chunking strategies
+*   Swap embedding models
+*   Move to production systems with confidence

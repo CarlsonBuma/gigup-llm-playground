@@ -1,213 +1,261 @@
-# ⏱️ **10‑Minute RAG Crash Course**  
-### *Everything you need to understand RAG — fast.*
+# ⏱️ 10‑Minute RAG Crash Course
 
-This crash course gives you the essential concepts, mental models, and workflows behind Retrieval‑Augmented Generation (RAG).  
-If you read this once, you’ll understand 80% of how modern AI assistants, search engines, and knowledge systems work.
+*Everything you need to understand RAG — fast.*
 
----
+This document explains the **core ideas**, **mental models**, and **workflow** behind Retrieval‑Augmented Generation (RAG). If you understand this file, you will understand **most modern AI assistants**, document search systems, and knowledge‑based chatbots. No theory overload. No framework noise. Just the essentials.
 
-# 🧠 1. What Problem Does RAG Solve?
 
-LLMs are powerful, but they have limitations:
+## 1. What Problem Does RAG Solve?
 
-- They **hallucinate**  
-- They **don’t know your private data**  
-- They **can’t stay up‑to‑date**  
-- They **forget long documents**  
-- They **can’t store large knowledgebases internally**
+Large Language Models (LLMs) are powerful, but fundamentally limited:
 
-RAG fixes all of this by giving the model a **memory extension**.
+*   They **hallucinate**
+*   They **don’t know your private data**
+*   They **can’t stay up‑to‑date**
+*   They **struggle with long documents**
+*   They **cannot store large knowledge bases internally**
 
----
+RAG solves these problems by **separating knowledge from reasoning**.
 
-# 🧠 What RAG Is — The Core Concept
+The LLM no longer needs to *remember everything* — it only needs to **reason over retrieved information**.
 
-**RAG = Retrieval‑Augmented Generation**
 
-Think of it like this: Instead of asking an AI model to "remember everything," you give it the ability to look things up in a knowledgebase when needed.
+## 2. What RAG Actually Is (Core Idea)
 
-### The Two Halves of RAG:
+**RAG = Retrieval + Generation**
 
-#### 1️⃣ **Retrieval** (Finding)
-Search your knowledge base for the most relevant pieces of information related to a user's question.
+Instead of asking a model to answer from memory, you:
 
-#### 2️⃣ **Generation** (Answering)
-Feed those retrieved pieces to an LLM to produce an accurate, grounded answer.
+1.  **Retrieve** relevant information from your knowledge base
+2.  **Generate** an answer using that information as context
 
-### Why RAG Works Better:
-| Problem | How RAG Solves It |
-|---------|-------------------|
-| Hallucination | Answers are grounded in real documents |
-| Outdated info | You control what's in the knowledge base |
-| Black box | You see exactly what documents were retrieved |
-| Privacy | Everything stays local on your machine |
-| Accuracy | Answers cite sources from your documents |
+Think of RAG as giving the model **read‑access to a searchable memory**.
 
----
 
-# 🧩 3. The RAG Pipeline (Simple Version)
+### The Two Halves of RAG
 
-```
-User Question
+#### ① Retrieval — *Finding the right information*
+
+Search your document collection for the most relevant pieces related to the user’s question.
+
+#### ② Generation — *Explaining it in natural language*
+
+Feed those pieces to an LLM to generate a grounded, coherent answer.
+
+
+### Why RAG Works Better
+
+| Problem            | RAG Solution                           |
+| ------------------ | -------------------------------------- |
+| Hallucinations     | Answers are grounded in real documents |
+| Outdated knowledge | You control what’s stored              |
+| Black‑box answers  | You can inspect retrieved sources      |
+| Privacy concerns   | Data stays local                       |
+| Accuracy           | Answers are based on retrieved facts   |
+
+## High‑Level RAG Architecture
+
+### Ingestion Pipeline
+
+    Document
       ↓
-Embed the question (vector)
+    Text Extraction
       ↓
-Search vector database (pgvector)
+    Semantic Chunking
       ↓
-Retrieve top‑k relevant chunks
+    Embedding Generation (Ollama)
       ↓
-Feed chunks + question to LLM
+    Vector Storage (pgvector)
+
+
+### Retrieval + Generation Pipeline
+
+    User Query
       ↓
-LLM generates grounded answer
-```
+    Query Embedding
+      ↓
+    Vector Similarity Search
+      ↓
+    Top‑K Relevant Chunks
+      ↓
+    LLM Prompt Assembly
+      ↓
+    Grounded Answer
 
-That’s it.  
-Everything else is just engineering around this loop.
 
----
+## Example Data Flow
 
-# 📄 4. How Documents Become Searchable
+    1. Upload resume.pdf
+       → Extract text
+       → Split into chunks (context‑aware)
+       → Generate embeddings
+       → Store in PostgreSQL
 
-Before retrieval can work, you must **prepare your documents**.
+    2. Ask: "What are the candidate's key skills?"
+       → Embed the question
+       → Find similar chunks (cosine similarity)
+       → Retrieve top matches
+       → Generate answer using retrieved context
 
-### Step 1 — Extract text  
-From PDFs, HTML, Markdown, etc.
+## 3. The RAG Loop (Minimal Version)
 
-### Step 2 — Chunk text  
-Split into small, meaningful pieces (e.g., 1000 characters).
+    User Question
+       ↓
+    Convert to embedding
+       ↓
+    Vector search (pgvector)
+       ↓
+    Retrieve top‑k chunks
+       ↓
+    Pass chunks + question to LLM
+       ↓
+    Grounded answer
 
-### Step 3 — Embed each chunk  
-Convert text → vector using a multilingual embedding model.
+Everything else in a RAG system is just **optimization around this loop**.
 
-### Step 4 — Store in pgvector  
-Each chunk becomes a row:
 
-- text  
-- embedding  
-- document ID  
-- chunk index  
+## 4. How Documents Become Searchable
 
-Now your knowledgebase is ready.
+Retrieval only works **after proper ingestion**.
 
----
+### Step‑by‑Step
 
-# 🧠 5. What Are Embeddings?
+1.  **Extract text**  
+    From PDFs, Markdown, HTML, etc.
 
-Embeddings are **numerical fingerprints of meaning**.
+2.  **Chunk the text**  
+    Split into small, meaningful sections.
+
+3.  **Generate embeddings**  
+    Convert each chunk into a vector.
+
+4.  **Store in pgvector**  
+    Each chunk becomes searchable.
+
+Each stored chunk contains:
+
+*   chunk text
+*   embedding vector
+*   document reference
+*   chunk index
+
+
+## 5. What Are Embeddings?
+
+Embeddings are **numeric representations of meaning**.
+
+Similar meanings → vectors close together.
 
 Example:
 
-- “developer”  
-- “software engineer”  
+*   “software developer”
+*   “software engineer”
 
-→ Their vectors are close together.
+These phrases are **semantically close**, even if the words differ.
 
-Embeddings allow **semantic search**, not keyword search.
+That’s why embeddings enable **semantic search**, not keyword matching.
 
-Your model:  
-**mxbai‑embed‑large**  
-- multilingual  
-- 1024‑dimensional  
-- perfect for resumes, documents, knowledgebases
 
----
+### Embedding Model Used
 
-# 🔍 6. How Vector Search Works
+**`mxbai‑embed‑large`**
+
+*   Multilingual
+*   1024‑dimensional vectors
+*   Well‑suited for documents, resumes, and knowledge bases
+
+
+## 6. How Vector Search Works
 
 When a user asks a question:
 
-1. Convert the question to an embedding  
-2. Compare it to all stored embeddings  
-3. Sort by **cosine distance**  
-4. Return the closest matches  
+1.  Convert the question into an embedding
+2.  Compare it to stored embeddings
+3.  Measure similarity (e.g. cosine distance)
+4.  Return the closest matches
 
-This is how the system “understands” meaning.
+This is how the system “understands” meaning without language.
 
----
 
-# 🤖 7. Where the LLM Fits In
+## 7. Where the LLM Fits In (Important)
 
-The LLM (e.g., `smollm:360m`) is **not** used for search.  
-It is used **after** retrieval.
+The LLM is **not** used for searching.
 
-The LLM takes:
+It is used **after retrieval**.
 
-- the user question  
-- the retrieved chunks  
+Inputs to the LLM:
 
-…and produces a grounded answer.
+*   the user’s question
+*   the retrieved chunks
 
-This prevents hallucination because the model is forced to use real data.
+The LLM’s job:
 
----
+*   summarize
+*   explain
+*   combine
+*   reason
 
-# 🧱 8. Why Chunking Matters
+This dramatically reduces hallucinations.
 
-Chunking is one of the most important parts of RAG.
 
-- Too big → embeddings become noisy  
-- Too small → lose context  
-- Too random → retrieval becomes inaccurate  
+## 8. Why Chunking Is Critical
 
-Your chunker uses:
+Chunking quality directly affects retrieval quality.
 
-- `RecursiveCharacterTextSplitter`  
-- chunk size: **1000**  
-- overlap: **150**  
+*   Too large → embeddings become noisy
+*   Too small → context is lost
+*   Random splitting → poor retrieval
 
-This is a modern, RAG‑friendly setup.
+Your setup uses:
 
----
+*   semantic splitting
+*   overlap to preserve context
+*   modern RAG‑friendly defaults
 
-# 🧪 9. What Happens During a Search (Step‑by‑Step)
+Chunking is often **more important than the LLM**.
 
-```
-User: "What skills does the candidate have?"
-```
 
-1. Normalize + embed the query  
-2. pgvector finds the closest chunks  
-3. Return the top 3 chunks  
-4. (Optional) LLM summarizes them  
-5. User gets a grounded answer  
+## 9. What Actually Happens During a Query
 
-This is the entire RAG loop.
+Example question:
 
----
+    "What skills does the candidate have?"
 
-# 🧭 10. Mental Models for RAG
+Process:
 
-### ✔ RAG is not magic  
-It’s structured search + structured generation.
+1.  Embed the question
+2.  Vector search finds similar chunks
+3.  Top‑k chunks are retrieved
+4.  Chunks + question go to the LLM
+5.  LLM generates a grounded answer
 
-### ✔ Embeddings are the heart of retrieval  
-Good embeddings → good search.
+That’s the entire RAG system in motion.
 
-### ✔ LLM is optional  
-Retrieval alone is already powerful.
 
-### ✔ Everything is local  
-Your playground uses **no external APIs**.
+## 10. RAG Mental Models (Remember These)
 
-### ✔ RAG is predictable  
-You always know *why* the model answered the way it did —  
-because you can inspect the retrieved chunks.
+✅ RAG is **structured search + structured generation**  
+✅ Embeddings are the heart of retrieval  
+✅ The LLM is optional — retrieval alone is powerful  
+✅ Local systems are easier to debug and trust  
+✅ RAG is explainable: you can always inspect retrieved chunks
 
----
 
-# 🎯 Final Takeaway
+## Final Takeaway
 
-If you understand these 10 points, you understand RAG:
+If you remember only this, you understand RAG:
 
-1. Extract text  
-2. Chunk text  
-3. Embed chunks  
-4. Store vectors  
-5. Embed query  
-6. Vector search  
-7. Retrieve top‑k  
-8. Feed to LLM  
-9. Generate grounded answer  
-10. Repeat  
+1.  Extract text
+2.  Chunk text
+3.  Embed chunks
+4.  Store vectors
+5.  Embed query
+6.  Vector search
+7.  Retrieve top‑k
+8.  Feed to LLM
+9.  Generate grounded answer
+10. Repeat
 
-This is the foundation of modern AI search systems.
+That’s it.
+
+Everything else is engineering.

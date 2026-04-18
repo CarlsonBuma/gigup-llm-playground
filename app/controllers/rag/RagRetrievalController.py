@@ -50,7 +50,7 @@ class RagRetrievalController:
         finally:
             session.close()
 
-    def get_chunks(self):
+    def get_all_chunks(self):
         session = self.db.session()
         try:
             stmt = (

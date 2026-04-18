@@ -1,45 +1,47 @@
 ###############################################
-# VECTOR DATABASE: PostgreSQL + pgvector
+# LOCAL AI STACK — USER TUTORIAL
 ###############################################
-# Start / Stop Stack
-#   docker-compose down
-#   docker-compose up -d
 #
-# After first startup:
-#   1. Open pgAdmin in browser → http://localhost:5050
-#   2. Create a new server connection:
-#        - Hostname: container IP (see below)
-#        - Username: postgres
-#        - Password: postgres
-#   3. Inside pgAdmin, enable pgvector:
-#        CREATE EXTENSION vector;
+# This Docker Compose stack provides:
 #
-# Find container IP (for pgAdmin connection):
-#   docker ps
-#   docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' <container_id>
-# Example:
-#   172.17.0.3
+#   • PostgreSQL + pgvector  → vector database
+#   • pgAdmin               → database UI
+#   • Ollama                → local LLM runtime
+#   • Ollama init container → auto‑pulls models
+#   • (Optional) Open‑WebUI → web interface
 #
-###############################################
-# OLLAMA: Local LLM Runtime
-###############################################
-# Access shell inside Ollama container:
-#   docker exec -it ollama_local /bin/sh
-# Exit shell:
-#   exit
+# All services run on the same internal Docker
+# network ("localnet") and communicate using
+# service names (no localhost inside Docker).
 #
-###############################################
-# NETWORKING
-###############################################
-# All services share the "localnet" bridge network
-# allowing internal communication by service name.
 ###############################################
 
 version: "3.9"
 
+###############################################
+# SERVICES
+###############################################
 services:
-  
-  # PostgreSQL with Vector Extension
+
+  ################################################
+  # PostgreSQL with pgvector extension
+  ################################################
+  #
+  # Purpose:
+  #   Central vector database for embeddings
+  #   (RAG, semantic search, memory, etc.)
+  #
+  # Notes:
+  #   - pgvector support is built into the image
+  #   - Data is persisted in pgvector_data volume
+  #
+  # Host access (optional):
+  #   Host:     localhost
+  #   Port:     5555
+  #   User:     postgres
+  #   Password: postgres
+  #
+  ################################################
   pgvector:
     image: ankane/pgvector:latest
     container_name: pgvector_db
@@ -49,9 +51,10 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5555:5432"
+      - "5555:5432"        # Host access (optional)
     volumes:
       - pgvector_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d   # Mount initial db-files
     networks:
       - localnet
     healthcheck:
@@ -60,7 +63,31 @@ services:
       timeout: 5s
       retries: 5
 
-  # pgAdmin Database Management UI
+
+  ################################################
+  # pgAdmin — PostgreSQL Web UI
+  ################################################
+  #
+  # Purpose:
+  #   Visual management of PostgreSQL
+  #
+  # Access:
+  #   http://localhost:5050
+  #
+  # Default login:
+  #   Email:    admin@admin.com
+  #   Password: admin
+  #
+  # IMPORTANT (internal connection):
+  #   Host name/address: pgvector
+  #   Port: 5432
+  #
+  # Explanation:
+  #   Because pgAdmin and PostgreSQL are on the
+  #   same Docker network, Docker DNS resolves
+  #   the service name automatically.
+  #
+  ################################################
   pgadmin:
     image: dpage/pgadmin4:latest
     container_name: pgadmin_ui
@@ -78,7 +105,23 @@ services:
     networks:
       - localnet
 
-  # Ollama - LLM Service
+
+  ################################################
+  # Ollama — Local LLM Runtime
+  ################################################
+  #
+  # Purpose:
+  #   Runs LLMs and embedding models locally
+  #
+  # Access:
+  #   From host:        http://localhost:11434
+  #   From containers: http://ollama:11434
+  #
+  # Notes:
+  #   - Models are stored in ollama_models volume
+  #   - API is HTTP + JSON
+  #
+  ################################################
   ollama:
     image: ollama/ollama:latest
     container_name: ollama_local
@@ -86,15 +129,119 @@ services:
     ports:
       - "11434:11434"
     volumes:
-      - OLLAMA_LLM_MODELs:/root/.ollama
+      - ollama_models:/root/.ollama
     networks:
       - localnet
 
+
+  ################################################
+  # Ollama Init Container — MODEL BOOTSTRAP
+  ################################################
+  #
+  # Purpose:
+  #   Automatically downloads required models
+  #   ONCE, then exits.
+  #
+  # How it works:
+  #   1. Waits for Ollama to start
+  #   2. Pulls required models
+  #   3. Stores them in shared volume
+  #   4. Exits permanently
+  #
+  # This container:
+  #   - Runs only once
+  #   - Is safe to leave defined
+  #   - Will NOT re‑pull models unnecessarily
+  #
+  # # LLM:
+  #   smollm:360m -> small model, for local environment
+  #
+  # # Embedding model:
+  #   mxbai-embed-large
+  #   → Embedding dimension: 1024
+  ################################################
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama_model_init
+    depends_on:
+      - ollama
+    entrypoint: ["/bin/sh", "-c"]
+    command: >
+      sleep 10 &&
+      ollama pull smollm:360m &&
+      ollama pull mxbai-embed-large
+    volumes:
+      - ollama_models:/root/.ollama
+    networks:
+      - localnet
+    restart: "no"
+
+
+  ################################################
+  # Open‑WebUI — Optional Web Interface
+  ################################################
+  #
+  # Purpose:
+  #   Browser-based UI for chatting with LLMs
+  #
+  # Access:
+  #   http://localhost:3000
+  #
+  # Internal networking:
+  #   Uses Docker DNS to connect to Ollama:
+  #     http://ollama:11434
+  #
+  # Notes:
+  #   - No localhost inside containers!
+  #   - Data stored in open-webui volume
+  #
+  ################################################
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: always
+    ports:
+      - "3000:8080"
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    volumes:
+      - open-webui:/app/backend/data
+    depends_on:
+      - ollama
+    networks:
+      - localnet
+
+###############################################
+# VOLUMES — DATA PERSISTENCE
+###############################################
+#
+# These volumes survive restarts and upgrades:
+#
+#   pgvector_data  → PostgreSQL database
+#   pgadmin_data   → pgAdmin config
+#   ollama_models  → LLM & embedding models
+#   open-webui     → chats, users, settings
+#
+###############################################
 volumes:
   pgvector_data:
   pgadmin_data:
-  OLLAMA_LLM_MODELs:
+  ollama_models:
+  open-webui:
 
+###############################################
+# NETWORK — INTERNAL COMMUNICATION
+###############################################
+#
+# All services share ONE internal network.
+#
+# Service DNS names:
+#   pgvector → pgvector:5432
+#   pgAdmin  → pgadmin:80
+#   Ollama   → ollama:11434
+#   WebUI    → open-webui:8080
+#
+###############################################
 networks:
   localnet:
     driver: bridge

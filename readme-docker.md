@@ -1,78 +1,161 @@
-# Setup Docker Environement
-Let’s walk it step by step, end to end, assuming you now have a `docker-compose.yml` with:
+# Docker Environment Setup (Local RAG Stack)
 
-- `pgvector` (Postgres + pgvector)
-- `pgadmin`
-- `ollama` (local LLM)
+This document describes how to start and operate the **local Docker environment** used for experimentation with LLMs, embeddings, and vector databases.
 
-## 1. Preconditions on your Windows machine
-- Check Version:
-  - `docker -v`
-- Make sure:
-  - Docker Desktop is installed.
-  - WSL2 backend is enabled.
-  - Docker is running (whale icon in system tray).
+## What This Stack Provides
 
-## 2. Start your stack
-Open a terminal where your `docker-compose.yml` lives:
+The Docker stack includes:
 
-1. **Start all services in the background**
-   ```bash
-   docker compose up -d
-   ```
-2. **Verify containers are running**
-   ```bash
-   docker ps
-   ```
-   You should see something like:
-   - `pgvector_db`
-   - `pgadmin_ui`
-   - `ollama_local` (or whatever names you used)
+*   **PostgreSQL + pgvector** — vector database
+*   **pgAdmin** — database UI
+*   **Ollama** — local LLM & embedding runtime
+*   **Optional Open‑WebUI** — browser‑based chat UI
 
+All services run on a **single internal Docker network** and communicate using **service names** (not `localhost`).
 
-## 3. Configure Ollama container (LLM & Embeddings)
+## Prerequisites
 
-1. **Enter the Ollama container**
-   ```bash
-   docker exec -it ollama_local bash
-   ```
-   (Replace `ollama_local` with your container_name if different.)
+*   Docker Desktop installed
+*   WSL2 backend enabled (Windows)
+*   Docker running
 
-2. **Pull a model**
-   Local Environment:
+Verify:
 
-   ```bash
-   ollama pull smollm:360m        # LLM
-   ollama pull mxbai-embed-large  # Embedding, 1024 Dimension (680 MB)
-   ```
-   
-   Live Environment:
+```bash
+docker -v
+docker compose version
+```
 
-   ```bash
-   ollama pull llama3             # LLM
-   ollama pull mxbai-embed-large  # Embedding, 1024 Dimension (680 MB)
-   ```
+## Starting the Environment
 
-3. Check Ollama Models
-   ```bash
-   ollama list
-   ```
+From the directory containing `docker-compose.yml`:
 
-4. **Exit the container**
-   ```bash
-   exit
-   ```
+```bash
+docker compose up -d
+```
+
+Verify containers:
+
+```bash
+docker ps
+```
+
+Expected containers include:
+
+*   `pgvector_db`
+*   `pgadmin_ui`
+*   `ollama_local`
+*   `ollama_model_init`
+*   `open-webui` (if enabled)
 
 
-## 4. Stop and restart the whole stack
+## Automatic Initialization
 
-- **Stop all containers**
-  ```bash
-  docker compose down
-  ```
-- **Start again later**
-  ```bash
-  docker compose up -d
-  ```
+### PostgreSQL / pgvector
 
-Volumes (`pgvector_data`, `pgadmin_data`, `OLLAMA_MODELS`) keep your data and models.
+*   PostgreSQL uses the `ankane/pgvector` image
+*   The **pgvector extension is enabled automatically**
+*   Initialization runs **only on first startup**, when the database volume is empty
+
+You do **not** need to:
+
+*   Open pgAdmin
+*   Run `CREATE EXTENSION` manually
+
+If volumes are removed (`docker compose down -v`), initialization will run again.
+
+
+### Ollama Models (Automatic)
+
+On first startup, a **one‑time init container** pulls a predefined set of models and then exits.
+
+Example default models:
+
+*   Lightweight LLM (e.g. `smollm:360m`)
+*   Embedding model (e.g. `mxbai-embed-large`, 1024‑dim)
+
+Models are stored in a Docker volume and persist across restarts.
+
+
+## Pulling Additional Models (Optional)
+
+Users can pull **additional or alternative models** at any time.
+
+Enter the Ollama container:
+
+```bash
+docker exec -it ollama_local /bin/sh
+```
+
+Pull any supported model:
+
+```bash
+ollama pull llama3
+ollama pull mistral
+```
+
+Verify available models:
+
+```bash
+ollama list
+```
+
+Exit:
+
+```bash
+exit
+```
+
+No restart is required — newly pulled models become immediately available.
+
+
+## Service Access
+
+### pgAdmin
+
+*   URL: <http://localhost:5050>
+*   Login: `admin@admin.com / admin`
+
+When adding a server:
+
+*   **Host:** `pgvector`
+*   **Port:** `5432`
+
+### Ollama API
+
+*   From host: `http://localhost:11434`
+*   From containers: `http://ollama:11434`
+
+### Open‑WebUI (if enabled)
+
+*   URL: <http://localhost:3000>
+
+
+## Stopping or Resetting the Environment
+
+Stop containers:
+
+```bash
+docker compose down
+```
+
+Restart later:
+
+```bash
+docker compose up -d
+```
+
+Full reset (⚠ removes database & models):
+
+```bash
+docker compose down -v
+```
+
+
+## Key Notes
+
+*   Containers **never use localhost** to talk to each other
+*   Service names act as internal DNS
+*   Initialization steps are **idempotent**
+*   Volumes ensure persistence
+*   The setup is intended as a **local playground environment**
